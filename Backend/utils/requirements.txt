@@ -1,0 +1,17 @@
+comtypes==1.1.14
+coverage==7.2.7
+filterpy==1.4.5
+imutils==0.5.4
+keyboard==0.13.5
+matplotlib==3.4.0
+mediapipe==0.8.11
+open3d==0.16.0
+opencv_contrib_python==4.4.0.46
+opencv_python==4.4.0.46
+primesense==2.2.0.30.post5
+PyAudio==0.2.13
+PyAutoGUI==0.9.50
+pycaw==20220416
+scipy==1.10.1
+screeninfo==0.8.1
+synthplayer==2.5

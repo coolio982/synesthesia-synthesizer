@@ -27,7 +27,7 @@ jobs:
           node-version: 16
           cache: npm
           
-      - name: Change directory to your desired folder
+      - name: Change directory to the desired folder
         run: cd Frontend
       
       - name: Install and build
