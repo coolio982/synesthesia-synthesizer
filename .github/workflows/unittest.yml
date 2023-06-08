@@ -1,0 +1,25 @@
+name: Python Unit Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.x
+      - name: navigate to dependencies folder
+        run: cd Backend
+      
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: navigate to utils
+        run: cd utils
+      - name: Run unit tests
+        run: python unittests.py 
