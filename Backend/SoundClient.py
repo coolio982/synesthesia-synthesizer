@@ -2,6 +2,7 @@
 import websockets
 import asyncio
 import ast
+from collections import deque
 from utils import synth
 import time
 import cv2 as cv
@@ -27,6 +28,8 @@ class SynthController:
         self.prev_reverse = False
         self.reverse = False
         self.should_terminate = False
+        self.tap_timer = time.time()
+        self.one_depths = {}
         
 
     def check_intersection(self, circle, rectangles, radius=60):
@@ -107,6 +110,50 @@ class SynthController:
 
             elif obj["pos_y"] > self.areas_y[2]: 
                 self.synths[synth_id].increment_wave_ctr()
+    
+    def check_ups_and_downs(deque):
+        iterator = iter(deque)
+        previous = next(iterator)
+        direction = None
+        peak_count = 0
+
+        for current in iterator:
+            if current > previous:
+                current_direction = 1
+            elif current < previous:
+                current_direction = 2
+
+            if direction is None:
+                direction = current_direction
+            elif current_direction != direction:
+                direction = current_direction
+                peak_count += 1
+
+            # Check if two peaks have been found
+            if peak_count >= 2:
+                return True
+
+            # Update previous for the next iteration
+            previous = current
+
+        return False
+        
+    def assign_gesture(self, obj, synth_id):
+        # accounts for taps
+        if self.check_intersection((obj["pos_x"], obj["pos_y"]), self.one_loc):
+            if self.tap_timer-time.time()>0.3:
+                if synth_id in self.one_depths:
+                    self.one_depths[synth_id].append(obj["avg_depth"])
+                else:
+                    self.one_depths[synth_id] = deque(maxlen=16)
+                    self.one_depths[synth_id].append(obj["avg_depth"])
+                self.tap_timer = time.time()
+        else:
+            try:
+                self.one_depths[synth_id].clear()
+            except:
+                pass
+
 
                     
     
@@ -156,7 +203,12 @@ class SynthController:
                 if obj["action"] == "touch":
                     if self.effect_on:
                         self.apply_effect(obj, synth_id)
-                    self.synths[synth_id].play_osc()
+                    else:
+                        self.assign_gesture(obj, synth_id)
+                    try:
+                        self.synths[synth_id].play_osc(self.one_depths[synth_id])
+                    except:
+                        self.synths[synth_id].play_osc()
                 else:
                     try:
                         self.synths[synth_id].stop_osc()
