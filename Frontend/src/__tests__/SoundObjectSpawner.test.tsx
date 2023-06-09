@@ -50,6 +50,4 @@ describe('SpawnSoundObject', () => {
     });
     expect(container?.textContent).toContain('Place an object here...');
   });
-
-  // Add more tests as needed for other functionality and behaviors of the component
 });

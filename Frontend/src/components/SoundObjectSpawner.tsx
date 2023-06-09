@@ -5,7 +5,6 @@ import React, {
   useMemo,
   MouseEventHandler,
 } from 'react';
-import * as Tone from 'tone';
 import * as ini from 'ini';
 import './background.css';
 import Instructions from './Instructions';
