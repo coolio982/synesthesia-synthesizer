@@ -95,7 +95,7 @@ colours = [(102, 102, 255), (102, 178, 255), (102, 255, 255),
 buffer = 64 
 
 # VISUALISATION FLAGS
-VISUALISE_STEPS = False
+VISUALISE_STEPS = True
 EVALUATE = False
 TEST_CALIBRATION = False
 
@@ -351,6 +351,9 @@ def main():
             filteredData = bg - newData
             filteredData[filteredData > maxDepth] = 0
             filteredDataRender = filteredData.astype(np.uint8)
+            
+            depth_debug_image = copy.deepcopy(filteredDataRender)
+            depth_debug_image = cv.cvtColor(depth_debug_image, cv.COLOR_GRAY2RGB)
             # Colour Frame hands #####################################################################
             colorFrame = frameSet.colorFrame()
             colorSize = colorFrame.dataSize()
@@ -402,7 +405,7 @@ def main():
                     fingertip_landmarks = [8,12]
                     avg_depth = 0
                     for landmark in fingertip_landmarks:
-                        pt = (int(landmark_list[landmark][0]*SFX),  int((landmark_list[landmark][1]-20)*SFY))
+                        pt = (landmark_list[landmark][0]*2, (landmark_list[landmark][1]-20)*2)
                         val = filteredData[pt[1],pt[0]]
                         avg_depth += val
                     avg_depth/=len(fingertip_landmarks)
@@ -411,6 +414,7 @@ def main():
                     most_common_fg_id = Counter(
                         finger_gesture_history).most_common()
                     gesture = point_history_classifier_labels[most_common_fg_id[0][0]]
+                    translated_landmarks = [[x * 2 + 5 , y * 2 - 40] for x, y in landmark_list]
                     objectDetails = hands_to_object_details(brect, keypoint_classifier_labels, gesture,effect_on, hand_sign_id, avg_depth,objectDetails)
                     if VISUALISE_STEPS:
                         debug_image = gesturecalcs.draw_bounding_rect(use_brect, debug_image, brect)
@@ -422,12 +426,20 @@ def main():
                             keypoint_classifier_labels[hand_sign_id],
                             gesture,
                         )  
+                        depth_debug_image = gesturecalcs.draw_landmarks(depth_debug_image, translated_landmarks)
+                        depth_debug_image = gesturecalcs.draw_info_text(
+                            depth_debug_image,
+                            brect,
+                            handedness,
+                            keypoint_classifier_labels[hand_sign_id],
+                            gesture,
+                        )  
             else:
                 point_history.append([0, 0])
 
             if VISUALISE_STEPS:
-                debug_image = gesturecalcs.draw_point_history(debug_image, point_history)
-                cv.imshow('Hand Gesture Recognition', debug_image)
+                translated_point_history = [[x * 2 + 5 , y * 2 - 40] for x, y in point_history]
+                depth_debug_image = gesturecalcs.draw_point_history(depth_debug_image, translated_point_history)
             # Depth Objects Recognition ###########################################################
             if depthFrame != None and depthFrame.dataSize()!=0:
                 if TEST_CALIBRATION:
@@ -452,7 +464,6 @@ def main():
                 contoursObject = imutils.grab_contours(contoursObject)
                 contours = []
 
-                maskDataRGB = cv.cvtColor(maskCircles, cv.COLOR_GRAY2RGB)
                 # remove contours that are the wrong size
                 for i in range(len(contoursObject)-1, -1, -1):
                     ((x, y), radius) = cv.minEnclosingCircle(
@@ -466,7 +477,7 @@ def main():
                                     int(M["m01"] / M["m00"]))
                         except ZeroDivisionError:
                             centre = (0, 0)
-                        cv.circle(maskDataRGB, centre, 5, (0, 0, 255), -1)
+                        cv.circle(depth_debug_image, centre, 5, (0, 0, 255), -1)
                         contours.append([int(radius), centre])
                 existing_contours = [(item["id"], item["pts"][-1]) for i,item in enumerate(pts) if len(item["pts"])>0]
                 centres = [sublist[1] for sublist in contours if sublist]
@@ -497,11 +508,11 @@ def main():
                         objectDetails.append({"id": str(id), "obj": "circle", "action": "stationary", "pos_x": collision_centre[0] , "pos_y": collision_centre[1] })
                     pts_list.appendleft(centre)
                     if VISUALISE_STEPS:
-                        cv.circle(maskDataRGB, centre, 20,
-                                    colours[id%12], 2)
+                        cv.circle(depth_debug_image, centre, 20,
+                                    colours[id%12], -1)
                         cv.circle(touchVisRGB, centre, 30,
                                     colours[id%12], -1)
-                        cv.putText(maskDataRGB, label, centre,
+                        cv.putText(depth_debug_image, label, centre,
                             cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
                         
                 # remove objects that no longer exist
@@ -533,14 +544,14 @@ def main():
                         pts_dict = next(item for item in pts if item['id'] == id)
                         objectDetails = obj_to_obj_details(pts_dict,id,  centre, objectDetails)
                         if VISUALISE_STEPS:
-                            cv.circle(maskDataRGB, centre, 20,
+                            cv.circle(depth_debug_image, centre, 20,
                                         colours[id%12], 2)
                             cv.circle(touchVisRGB, centre,30,
                                         colours[id%12], -1)
-                            cv.putText(maskDataRGB, label, centre,
+                            cv.putText(depth_debug_image, label, centre,
                                 cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
                 if VISUALISE_STEPS:
-                    cv.imshow("object tracking", maskDataRGB)
+                    cv.imshow("object tracking", depth_debug_image)
 
                 # Touch Tracker #####################################################################
                 thresholdCircles = cv.GaussianBlur(thresholdCircles, (7,7), 0)
@@ -592,9 +603,7 @@ def main():
                 
                 if VISUALISE_STEPS:
                     touchVisRGB = cv.copyMakeBorder(touchVisRGB, top=0, bottom=10, left=0, right=80, borderType=cv.BORDER_CONSTANT, value=(0, 0, 0))
-                    resized = cv.resize(touchVisRGB, (1280, 800), interpolation = cv.INTER_AREA)
-                    cv.resizeWindow("Touch Detector", 1280, 800)
-                    cv.imshow("Touch Detector", resized)
+                    cv.imshow("Touch Detector", touchVisRGB)
                 
                 if TEST_CALIBRATION:
                     for x in areas_x:
@@ -608,12 +617,13 @@ def main():
                         color = (0, 255, 0)  
                         cv.line(AreaVisRGB, start_point, end_point, color, 2)
                     cv.imshow("Area Detector", AreaVisRGB)
-                    data_to_send = bytes(str(objectDetails), encoding="utf-8")
-                    # print(str(objectDetails))
+
                 if EVALUATE:
                     end_time = time.time()
                     iteration_time = end_time - start_time
                     print(f"Iteration Time: {iteration_time} seconds")
+
+                data_to_send = bytes(str(objectDetails), encoding="utf-8")
                 asyncio.get_event_loop().run_until_complete(broadcast(data_to_send))
     pipe.stop()
     cv.destroyAllWindows()
