@@ -95,9 +95,9 @@ colours = [(102, 102, 255), (102, 178, 255), (102, 255, 255),
 buffer = 64 
 
 # VISUALISATION FLAGS
-VISUALISE_STEPS =True
+VISUALISE_STEPS = False
 EVALUATE = False
-TEST_CALIBRATION = True
+TEST_CALIBRATION = False
 
 # COORDINATE TRANSFORMATION
 def scale_translate(coord):
