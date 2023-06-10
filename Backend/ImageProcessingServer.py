@@ -95,7 +95,7 @@ colours = [(102, 102, 255), (102, 178, 255), (102, 255, 255),
 buffer = 64 
 
 # VISUALISATION FLAGS
-VISUALISE_STEPS =False
+VISUALISE_STEPS =True
 EVALUATE = False
 TEST_CALIBRATION = True
 
@@ -165,21 +165,20 @@ def get_args():
 
     return args
 
-def hands_to_object_details(brect, keypoint_classifier_labels, gesture, effect_on, hand_sign_id, objectDetails):
+def hands_to_object_details(brect, keypoint_classifier_labels, gesture, effect_on, hand_sign_id,avg_depth, objectDetails):
     transformed_brect = scale_translate((brect[0], brect[1]))
     if (gesture == "Clockwise" and effect_on == False):
         effect_on = True
         objectDetails.append({"id": "h", "obj": "gesture",
-                                "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY)})
+                                "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY), "depth": int(avg_depth)})
     elif (gesture == "Anticlockwise" and effect_on == True):
         effect_on = False
         objectDetails.append({"id": "h", "obj": "gesture",
-                                "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY)})
+                                "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY),"depth": int(avg_depth)})
 
     if hand_sign_id != None and abs((brect[2]-brect[0])*(brect[1]-brect[3]))<MAX_HAND_AREA: # send if the hand area is recognised and is small enough(on the plane)
         objectDetails.append({"id": "h", "obj": "sign",
-                                "action": keypoint_classifier_labels[hand_sign_id], "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*4, "y_h":brect[3]*4})
-    
+                                "action": keypoint_classifier_labels[hand_sign_id], "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*4, "y_h":brect[3]*4,"depth": int(avg_depth)})
     return objectDetails
 
 def obj_to_obj_details(pts_dict, id, centre, objectDetails):
@@ -335,10 +334,23 @@ def main():
 
         # Camera capture #####################################################
 
-        frameSet = pipe.waitForFrames(100)   
+        frameSet = pipe.waitForFrames(100)
+           
         if frameSet == None or frameSet.colorFrame() == None or frameSet.depthFrame() == None:
             continue
         else:
+            depthFrame = frameSet.depthFrame()
+            size = depthFrame.dataSize()
+            data = depthFrame.data()
+            # reformat data
+            data.resize((windowsHeight, windowsWidth, 2))
+            # data = np.flip(data, 1)
+            ## exclusive to this setup
+            data = np.flip(data, 0)
+            newData = data[:, :, 0]+data[:, :, 1]*256
+            filteredData = bg - newData
+            filteredData[filteredData > maxDepth] = 0
+            filteredDataRender = filteredData.astype(np.uint8)
             # Colour Frame hands #####################################################################
             colorFrame = frameSet.colorFrame()
             colorSize = colorFrame.dataSize()
@@ -349,7 +361,7 @@ def main():
                 colorData.resize((colorHeight, colorWidth, 3))
                 colorData = cv.resize(colorData, (320, 240))
                 image = colorData # The data is already in RGB format
-                ## EXCLUSIVE TO THIS SETUP
+                ## EXCLUSIVE TO THIS SETUP (for viewing)
                 image = cv.flip(image, 1)
                 image = cv.flip(image, 0)
                 image.flags.writeable = False
@@ -359,7 +371,6 @@ def main():
             image.flags.writeable = False
             results = hands.process(image)
             image.flags.writeable = True
-           
             #  ####################################################################
             if results.multi_hand_landmarks is not None:
                 for hand_landmarks, handedness in zip(results.multi_hand_landmarks,
@@ -388,13 +399,19 @@ def main():
                     if point_history_len == (history_length * 2):
                         finger_gesture_id = point_history_classifier(
                             pre_processed_point_history_list)
+                    fingertip_landmarks = [8,12]
+                    avg_depth = 0
+                    for landmark in fingertip_landmarks:
+                        pt = (int(landmark_list[landmark][0]*SFX),  int((landmark_list[landmark][1]-20)*SFY))
+                        val = filteredData[pt[1],pt[0]]
+                        avg_depth += val
+                    avg_depth/=len(fingertip_landmarks)
 
-                    # Calculates the gesture IDs in the latest detection
                     finger_gesture_history.append(finger_gesture_id)
                     most_common_fg_id = Counter(
                         finger_gesture_history).most_common()
                     gesture = point_history_classifier_labels[most_common_fg_id[0][0]]
-                    objectDetails = hands_to_object_details(brect, keypoint_classifier_labels, gesture,effect_on, hand_sign_id, objectDetails)
+                    objectDetails = hands_to_object_details(brect, keypoint_classifier_labels, gesture,effect_on, hand_sign_id, avg_depth,objectDetails)
                     if VISUALISE_STEPS:
                         debug_image = gesturecalcs.draw_bounding_rect(use_brect, debug_image, brect)
                         debug_image = gesturecalcs.draw_landmarks(debug_image, landmark_list)
@@ -412,207 +429,192 @@ def main():
                 debug_image = gesturecalcs.draw_point_history(debug_image, point_history)
                 cv.imshow('Hand Gesture Recognition', debug_image)
             # Depth Objects Recognition ###########################################################
-            depthFrame = frameSet.depthFrame()
-            if depthFrame != None:
-                size = depthFrame.dataSize()
-                data = depthFrame.data()
+            if depthFrame != None and depthFrame.dataSize()!=0:
+                if TEST_CALIBRATION:
+                    AreaVisRGB = np.zeros_like(filteredDataRender, dtype=np.uint8)
+                    AreaVisRGB = cv.cvtColor(AreaVisRGB, cv.COLOR_GRAY2RGB)
+                if VISUALISE_STEPS:
+                    touchVisRGB = np.zeros_like(filteredDataRender, dtype=np.uint8)
+                    touchVisRGB = cv.cvtColor(touchVisRGB, cv.COLOR_GRAY2RGB)
 
-                if size != 0:
-                    # reformat data
-                    data.resize((windowsHeight, windowsWidth, 2))
-                    # data = np.flip(data, 1)
-                    ## exclusive to this setup
-                    data = np.flip(data, 0)
-                    newData = data[:, :, 0]+data[:, :, 1]*256
-                    filteredData = bg - newData
-                    filteredData[filteredData > maxDepth] = 0
-                    filteredDataRender = filteredData.astype(np.uint8)
+                # obtain the filtered circles(on the first level)
+                blurredCircles = cv.GaussianBlur(filteredData, (7, 7), 0)
+                thresholdCircles = cv.inRange(
+                    blurredCircles, OBJECT_DEPTH-OBJECT_MARGIN, OBJECT_DEPTH+OBJECT_MARGIN)
+                # perform dilations and erosions to remove small blobs left in the mask
+                maskCircles = cv.erode(
+                    thresholdCircles, None, iterations=2)
+                
+                # find contours in the mask and initialize the current
+                # (x, y) centre of the ball
+                contoursObject = cv.findContours(maskCircles.copy(), cv.RETR_EXTERNAL,
+                    cv.CHAIN_APPROX_SIMPLE)
+                contoursObject = imutils.grab_contours(contoursObject)
+                contours = []
 
-                    if TEST_CALIBRATION:
-                        AreaVisRGB = np.zeros_like(filteredDataRender, dtype=np.uint8)
-                        AreaVisRGB = cv.cvtColor(AreaVisRGB, cv.COLOR_GRAY2RGB)
+                maskDataRGB = cv.cvtColor(maskCircles, cv.COLOR_GRAY2RGB)
+                # remove contours that are the wrong size
+                for i in range(len(contoursObject)-1, -1, -1):
+                    ((x, y), radius) = cv.minEnclosingCircle(
+                        contoursObject[i])
+                    if radius < RADIUS_LOWER or radius > RADIUS_UPPER or x < TOP_CORNER_X-BORDER_MARGIN or x > TOP_CORNER_X+ WIDTH+BORDER_MARGIN or y< TOP_CORNER_Y-BORDER_MARGIN or y>TOP_CORNER_Y+HEIGHT+BORDER_MARGIN:
+                        del contoursObject[i]
+                    else:
+                        M = cv.moments(contoursObject[i])
+                        try:
+                            centre = (int(M["m10"] / M["m00"]),
+                                    int(M["m01"] / M["m00"]))
+                        except ZeroDivisionError:
+                            centre = (0, 0)
+                        cv.circle(maskDataRGB, centre, 5, (0, 0, 255), -1)
+                        contours.append([int(radius), centre])
+                existing_contours = [(item["id"], item["pts"][-1]) for i,item in enumerate(pts) if len(item["pts"])>0]
+                centres = [sublist[1] for sublist in contours if sublist]
+                (pairs, unmatched_existing, unmatched_new) = depthcameracalcs.find_closest_pairs(
+                    existing_contours, centres)
+                
+                # Match existing pairs
+                for pair in pairs:
+                    id = pair[0]
+                    centre = centres[pair[1]]
+                    label = "Circle {}".format(id)
+                    pts_dict = next(item for item in pts if item['id'] == id)
+                    pts_list = pts_dict['pts']
+                    
+                    # if the distance is sufficiently different, it has moved
+                    if len(pts_list) and (abs(pts_list[-1][0]-centre[0]) > 3 or abs(pts_list[-1][1]-centre[1]) > 3):
+                        collision_centre = scale_translate(centre)
+                        if TEST_CALIBRATION:
+                            cv.circle(AreaVisRGB, collision_centre, 30,
+                                    colours[id%12], 2)
+                        objectDetails.append({"id": str(id), "obj": "circle",
+                                            "action": "move", "pos_x": collision_centre[0] , "pos_y": collision_centre[1] })
+                    elif len(pts_list):
+                        collision_centre = scale_translate(pts_list[-1])
+                        if TEST_CALIBRATION:
+                            cv.circle(AreaVisRGB, collision_centre,30,
+                                    colours[id%12], 2)
+                        objectDetails.append({"id": str(id), "obj": "circle", "action": "stationary", "pos_x": collision_centre[0] , "pos_y": collision_centre[1] })
+                    pts_list.appendleft(centre)
                     if VISUALISE_STEPS:
-                        touchVisRGB = np.zeros_like(filteredDataRender, dtype=np.uint8)
-                        touchVisRGB = cv.cvtColor(touchVisRGB, cv.COLOR_GRAY2RGB)
-
-                    # obtain the filtered circles(on the first level)
-                    blurredCircles = cv.GaussianBlur(filteredData, (7, 7), 0)
-                    thresholdCircles = cv.inRange(
-                        blurredCircles, OBJECT_DEPTH-OBJECT_MARGIN, OBJECT_DEPTH+OBJECT_MARGIN)
-                    # perform dilations and erosions to remove small blobs left in the mask
-                    maskCircles = cv.erode(
-                        thresholdCircles, None, iterations=2)
-                    
-                    # find contours in the mask and initialize the current
-                    # (x, y) centre of the ball
-                    contoursObject = cv.findContours(maskCircles.copy(), cv.RETR_EXTERNAL,
-                        cv.CHAIN_APPROX_SIMPLE)
-                    contoursObject = imutils.grab_contours(contoursObject)
-                    contours = []
-  
-                    maskDataRGB = cv.cvtColor(maskCircles, cv.COLOR_GRAY2RGB)
-                    # remove contours that are the wrong size
-                    for i in range(len(contoursObject)-1, -1, -1):
-                        ((x, y), radius) = cv.minEnclosingCircle(
-                            contoursObject[i])
-                        if radius < RADIUS_LOWER or radius > RADIUS_UPPER or x < TOP_CORNER_X-BORDER_MARGIN or x > TOP_CORNER_X+ WIDTH+BORDER_MARGIN or y< TOP_CORNER_Y-BORDER_MARGIN or y>TOP_CORNER_Y+HEIGHT+BORDER_MARGIN:
-                            del contoursObject[i]
-                        else:
-                            M = cv.moments(contoursObject[i])
-                            try:
-                                centre = (int(M["m10"] / M["m00"]),
-                                      int(M["m01"] / M["m00"]))
-                            except ZeroDivisionError:
-                                centre = (0, 0)
-                            cv.circle(maskDataRGB, centre, 5, (0, 0, 255), -1)
-                            contours.append([int(radius), centre])
-                    existing_contours = [(item["id"], item["pts"][-1]) for i,item in enumerate(pts) if len(item["pts"])>0]
-                    centres = [sublist[1] for sublist in contours if sublist]
-                    (pairs, unmatched_existing, unmatched_new) = depthcameracalcs.find_closest_pairs(
-                        existing_contours, centres)
-                    
-                    # Match existing pairs
-                    for pair in pairs:
-                        id = pair[0]
-                        centre = centres[pair[1]]
-                        label = "Circle {}".format(id)
-                        pts_dict = next(item for item in pts if item['id'] == id)
-                        pts_list = pts_dict['pts']
+                        cv.circle(maskDataRGB, centre, 20,
+                                    colours[id%12], 2)
+                        cv.circle(touchVisRGB, centre, 30,
+                                    colours[id%12], -1)
+                        cv.putText(maskDataRGB, label, centre,
+                            cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
                         
-                        # if the distance is sufficiently different, it has moved
-                        if len(pts_list) and (abs(pts_list[-1][0]-centre[0]) > 3 or abs(pts_list[-1][1]-centre[1]) > 3):
-                            collision_centre = scale_translate(centre)
-                            if TEST_CALIBRATION:
-                                cv.circle(AreaVisRGB, collision_centre, 30,
-                                        colours[id%12], 2)
-                            objectDetails.append({"id": str(id), "obj": "circle",
-                                                "action": "move", "pos_x": collision_centre[0] , "pos_y": collision_centre[1] })
-                        elif len(pts_list):
-                            collision_centre = scale_translate(pts_list[-1])
-                            if TEST_CALIBRATION:
-                                cv.circle(AreaVisRGB, collision_centre,30,
-                                        colours[id%12], 2)
-                            objectDetails.append({"id": str(id), "obj": "circle", "action": "stationary", "pos_x": collision_centre[0] , "pos_y": collision_centre[1] })
-                        pts_list.appendleft(centre)
+                # remove objects that no longer exist
+                for item in pts:
+                    id = item['id']
+                    pts_list = item['pts']
+                    if id not in [pair[0] for pair in pairs]:
+                        pts_list.clear()
+
+                # add new objects to the deque
+                for unmatched in unmatched_new:
+                    centre = centres[unmatched]
+                    deque_available = False
+                    for existing_pts in pts:
+                        if len(existing_pts['pts']) == 0:
+                            id = existing_pts['id']
+                            pts_list = existing_pts['pts']
+                            pts_list.appendleft(centre)
+                            deque_available = True
+                            break
+                    # if all of the points list are in use, add new one
+                    if not deque_available:
+                        id = len(pts)
+                        new_pts = {'id': id, 'pts': deque(maxlen=buffer)}
+                        new_pts['pts'].appendleft(centre)
+                        pts.append(new_pts)
+                    label = "Circle {}".format(id)
+                    if (id >= 0):
+                        pts_dict = next(item for item in pts if item['id'] == id)
+                        objectDetails = obj_to_obj_details(pts_dict,id,  centre, objectDetails)
                         if VISUALISE_STEPS:
                             cv.circle(maskDataRGB, centre, 20,
                                         colours[id%12], 2)
-                            cv.circle(touchVisRGB, centre, 30,
+                            cv.circle(touchVisRGB, centre,30,
                                         colours[id%12], -1)
                             cv.putText(maskDataRGB, label, centre,
                                 cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                            
-                    # remove objects that no longer exist
-                    for item in pts:
-                        id = item['id']
-                        pts_list = item['pts']
-                        if id not in [pair[0] for pair in pairs]:
-                            pts_list.clear()
+                if VISUALISE_STEPS:
+                    cv.imshow("object tracking", maskDataRGB)
 
-                    # add new objects to the deque
-                    for unmatched in unmatched_new:
-                        centre = centres[unmatched]
-                        deque_available = False
-                        for existing_pts in pts:
-                            if len(existing_pts['pts']) == 0:
-                                id = existing_pts['id']
-                                pts_list = existing_pts['pts']
-                                pts_list.appendleft(centre)
-                                deque_available = True
-                                break
-                        # if all of the points list are in use, add new one
-                        if not deque_available:
-                            id = len(pts)
-                            new_pts = {'id': id, 'pts': deque(maxlen=buffer)}
-                            new_pts['pts'].appendleft(centre)
-                            pts.append(new_pts)
-                        label = "Circle {}".format(id)
-                        if (id >= 0):
-                            pts_dict = next(item for item in pts if item['id'] == id)
-                            objectDetails = obj_to_obj_details(pts_dict,id,  centre, objectDetails)
+                # Touch Tracker #####################################################################
+                thresholdCircles = cv.GaussianBlur(thresholdCircles, (7,7), 0)
+                # Invert the thresholded circles mask
+                thresholdCircles_inv = cv.bitwise_not(thresholdCircles)
+                interactions= cv.bitwise_and(filteredData, filteredData, mask=thresholdCircles_inv)
+                blurred = cv.GaussianBlur(interactions, (7,7), 0)
+                mask = cv.erode(blurred, None, iterations=2)
+                mask = cv.dilate(mask, None, iterations=2)
+                # get all things above a level
+                # _, binary = cv.threshold(mask, OBJECT_DEPTH*2.5,OBJECT_DEPTH*2.5, cv.THRESH_BINARY)
+                # get all things in range
+                binary = cv.inRange(mask, OBJECT_MARGIN, OBJECT_DEPTH*2.1)
+                # Detect contours in binarised image
+                binary = cv.convertScaleAbs(binary)
+                contoursTouch, _ = cv.findContours(binary, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+                contour_img = np.zeros_like(binary)  # Create a black image of same size as mask
+                contour_img = cv.cvtColor(contour_img, cv.COLOR_GRAY2RGB)
+            
+                for contourO in contours:
+                    # Create a binary mask from contour1
+                    maskO = np.zeros_like(contour_img, dtype=np.uint8)
+                    cv.circle(maskO, contourO[1], contourO[0], (0, 255, 0), -1)
+                    for contourT in contoursTouch:
+                        on_boundary = False
+                        # Iterate through each point in the contour
+                        for i in range(len(contourT)):
+                            x = contourT[i][0][0]
+                            # Check if x-coordinate is outside the threshold
+                            if x < 60:
+                                on_boundary = True
+                                # Increase the x-coordinate
+                                contourT[i][0][0] = x- 50   
+                        
+                        area = cv.contourArea(contourT)
+                        if area > MIN_TOUCH_AREA or on_boundary:
                             if VISUALISE_STEPS:
-                                cv.circle(maskDataRGB, centre, 20,
-                                            colours[id%12], 2)
-                                cv.circle(touchVisRGB, centre,30,
-                                            colours[id%12], -1)
-                                cv.putText(maskDataRGB, label, centre,
-                                    cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                    if VISUALISE_STEPS:
-                        cv.imshow("object tracking", maskDataRGB)
-
-                    # Touch Tracker #####################################################################
-                    thresholdCircles = cv.GaussianBlur(thresholdCircles, (7,7), 0)
-                    # Invert the thresholded circles mask
-                    thresholdCircles_inv = cv.bitwise_not(thresholdCircles)
-                    interactions= cv.bitwise_and(filteredData, filteredData, mask=thresholdCircles_inv)
-                    blurred = cv.GaussianBlur(interactions, (7,7), 0)
-                    mask = cv.erode(blurred, None, iterations=2)
-                    mask = cv.dilate(mask, None, iterations=2)
-                    # get all things above a level
-                    # _, binary = cv.threshold(mask, OBJECT_DEPTH*2.5,OBJECT_DEPTH*2.5, cv.THRESH_BINARY)
-                    # get all things in range
-                    binary = cv.inRange(mask, OBJECT_MARGIN, OBJECT_DEPTH*2.1)
-                    # Detect contours in binarised image
-                    binary = cv.convertScaleAbs(binary)
-                    contoursTouch, _ = cv.findContours(binary, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-                    contour_img = np.zeros_like(binary)  # Create a black image of same size as mask
-                    contour_img = cv.cvtColor(contour_img, cv.COLOR_GRAY2RGB)
+                                cv.drawContours(touchVisRGB, [contourT], 0, (0, 255, 0), -1)
+                            # Create a binary mask from contour2
+                            maskT = np.zeros_like(contour_img, dtype=np.uint8)
+                            cv.drawContours(maskT, [contourT], 0, (0, 255, 0), -1)
+                            # Extract the pixels within the contour from the original image 
+                            intersection = cv.bitwise_and(maskO, maskT)
+                            # Convert the intersection result to grayscale
+                            intersection_gray = cv.cvtColor(intersection, cv.COLOR_BGR2GRAY)
+                            # Check if the intersection is non-empty (i.e., if any pixels are common between the two contours)
+                            if cv.countNonZero(intersection_gray) > 0:
+                                objectDetails = depthcameracalcs.assign_action(contourO, pts, objectDetails)
                 
-                    for contourO in contours:
-                        # Create a binary mask from contour1
-                        maskO = np.zeros_like(contour_img, dtype=np.uint8)
-                        cv.circle(maskO, contourO[1], contourO[0], (0, 255, 0), -1)
-                        for contourT in contoursTouch:
-                            on_boundary = False
-                            # Iterate through each point in the contour
-                            for i in range(len(contourT)):
-                                x = contourT[i][0][0]
-                                # Check if x-coordinate is outside the threshold
-                                if x < 60:
-                                    on_boundary = True
-                                    # Increase the x-coordinate
-                                    contourT[i][0][0] = x- 50   
-                           
-                            area = cv.contourArea(contourT)
-                            if area > MIN_TOUCH_AREA or on_boundary:
-                                if VISUALISE_STEPS:
-                                    cv.drawContours(touchVisRGB, [contourT], 0, (0, 255, 0), -1)
-                                # Create a binary mask from contour2
-                                maskT = np.zeros_like(contour_img, dtype=np.uint8)
-                                cv.drawContours(maskT, [contourT], 0, (0, 255, 0), -1)
-                                # Extract the pixels within the contour from the original image 
-                                intersection = cv.bitwise_and(maskO, maskT)
-                                # Convert the intersection result to grayscale
-                                intersection_gray = cv.cvtColor(intersection, cv.COLOR_BGR2GRAY)
-                                # Check if the intersection is non-empty (i.e., if any pixels are common between the two contours)
-                                if cv.countNonZero(intersection_gray) > 0:
-                                    objectDetails = depthcameracalcs.assign_action(contourO, pts, objectDetails)
-                    
-                    if VISUALISE_STEPS:
-                        touchVisRGB = cv.copyMakeBorder(touchVisRGB, top=0, bottom=10, left=0, right=80, borderType=cv.BORDER_CONSTANT, value=(0, 0, 0))
-                        resized = cv.resize(touchVisRGB, (1280, 800), interpolation = cv.INTER_AREA)
-                        cv.resizeWindow("Touch Detector", 1280, 800)
-                        cv.imshow("Touch Detector", resized)
-                    
-                    if TEST_CALIBRATION:
-                        for x in areas_x:
-                            start_point = (x, 0)
-                            end_point = (x, AreaVisRGB.shape[0])
-                            color = (0, 255, 0)  
-                            cv.line(AreaVisRGB, start_point, end_point, color, 2)
-                        for y in areas_y:
-                            start_point = (0, y)
-                            end_point = ( AreaVisRGB.shape[1],y)
-                            color = (0, 255, 0)  
-                            cv.line(AreaVisRGB, start_point, end_point, color, 2)
-                        cv.imshow("Area Detector", AreaVisRGB)
-                        data_to_send = bytes(str(objectDetails), encoding="utf-8")
-                        # print(str(objectDetails))
-                    if EVALUATE:
-                        end_time = time.time()
-                        iteration_time = end_time - start_time
-                        print(f"Iteration Time: {iteration_time} seconds")
-                    asyncio.get_event_loop().run_until_complete(broadcast(data_to_send))
+                if VISUALISE_STEPS:
+                    touchVisRGB = cv.copyMakeBorder(touchVisRGB, top=0, bottom=10, left=0, right=80, borderType=cv.BORDER_CONSTANT, value=(0, 0, 0))
+                    resized = cv.resize(touchVisRGB, (1280, 800), interpolation = cv.INTER_AREA)
+                    cv.resizeWindow("Touch Detector", 1280, 800)
+                    cv.imshow("Touch Detector", resized)
+                
+                if TEST_CALIBRATION:
+                    for x in areas_x:
+                        start_point = (x, 0)
+                        end_point = (x, AreaVisRGB.shape[0])
+                        color = (0, 255, 0)  
+                        cv.line(AreaVisRGB, start_point, end_point, color, 2)
+                    for y in areas_y:
+                        start_point = (0, y)
+                        end_point = ( AreaVisRGB.shape[1],y)
+                        color = (0, 255, 0)  
+                        cv.line(AreaVisRGB, start_point, end_point, color, 2)
+                    cv.imshow("Area Detector", AreaVisRGB)
+                    data_to_send = bytes(str(objectDetails), encoding="utf-8")
+                    # print(str(objectDetails))
+                if EVALUATE:
+                    end_time = time.time()
+                    iteration_time = end_time - start_time
+                    print(f"Iteration Time: {iteration_time} seconds")
+                asyncio.get_event_loop().run_until_complete(broadcast(data_to_send))
     pipe.stop()
     cv.destroyAllWindows()
 
