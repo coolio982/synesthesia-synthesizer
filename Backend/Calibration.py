@@ -77,10 +77,6 @@ def filter_area(event, x, y, flags, param):
         # perform dilations and erosions to remove small blobs left in the mask
         mask = cv2.erode(blurred, None, iterations=2)
         mask = cv2.dilate(mask, None, iterations=2)
-        # if VISUALISE_STEPS:
-        #     # Display the filtered image
-        #     cv2.imshow('Filtered Image', filtered_image)
-        #     cv2.imshow("masked tracker", mask)
         # Find contours in the filtered image
         contours, hierarchy = cv2.findContours(
             filtered_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -96,9 +92,9 @@ def filter_area(event, x, y, flags, param):
                 M = cv2.moments(contour)
                 cX = int(M["m10"] / M["m00"])
                 cY = int(M["m01"] / M["m00"])
-                cv2.circle(filtered_image, (cX, cY), int(radius), (0, 255, 0), 2)
+                cv2.circle(filtered_image, (cX, cY+40), int(radius), (0, 255, 0), 2)
                 newDataRender = newColorData.astype(np.uint8)
-                cv2.circle(newDataRender, (cX, cY), int(radius), (0, 255, 0), 2)
+                cv2.circle(newDataRender, (cX, cY+40), int(radius), (0, 255, 0), 2)
                 break
         # Display the filtered image with contours
         cv2.imshow('Visual Contours', newDataRender)

@@ -203,8 +203,8 @@ def get_transformation(data):
             scale_factor_x = (target_x[1] - target_x[0]) / width
             scale_factor_y = (target_y[1] - target_y[0]) / height
             
-            displacement_x = -min_x * scale_factor_x + target_x[0] -45
-            displacement_y = -min_y * scale_factor_y + target_y[0] +110
+            displacement_x = -min_x * scale_factor_x + target_x[0]
+            displacement_y = -min_y * scale_factor_y + target_y[0] + 40
             return displacement_x, displacement_y, scale_factor_x, scale_factor_y, width, height, min_x, min_y
 
 def show_working_area(colorFrame, size):

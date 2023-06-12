@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     # Start both threads
     thread1.start()
-    time.sleep(5)
+    time.sleep(10)
     thread2.start()
 
     # Wait for both threads to finish

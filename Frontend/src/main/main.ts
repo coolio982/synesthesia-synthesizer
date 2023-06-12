@@ -18,7 +18,7 @@ import fs from 'fs';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
 
-const backendDirectory = path.join(__dirname, '/../../../../Backend');
+const backendDirectory = path.join(__dirname, '../../../Backend');
 
 class AppUpdater {
   constructor() {

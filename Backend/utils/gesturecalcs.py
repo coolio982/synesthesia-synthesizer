@@ -184,7 +184,6 @@ def draw_info_text(image, brect, handedness, hand_sign_text,
     #              (0, 0, 0), -1)
 
     info_text = handedness.classification[0].label[0:]
-    print(info_text)
     if info_text == "Left":
         info_text = "Right"
     else:

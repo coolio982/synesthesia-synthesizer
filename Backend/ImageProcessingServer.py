@@ -405,7 +405,9 @@ def main():
                     fingertip_landmarks = [8,12]
                     avg_depth = 0
                     for landmark in fingertip_landmarks:
-                        pt = (landmark_list[landmark][0]*2, (landmark_list[landmark][1]-20)*2)
+                        pt = [landmark_list[landmark][0]*2, (landmark_list[landmark][1]-20)*2]
+                        pt[1] = max(0, min(pt[1], 399))
+                        pt[0] = max(0, min(pt[0], 639))
                         val = filteredData[pt[1],pt[0]]
                         avg_depth += val
                     avg_depth/=len(fingertip_landmarks)
