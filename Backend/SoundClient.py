@@ -29,14 +29,14 @@ class SynthController:
         self.reverse = False
         self.should_terminate = False
         self.tap_timer = time.time()
-        self.one_depths = {}
+        self.two_depths = {}
         
 
     def check_intersection(self, circle, rectangles, radius=60):
         circle_x, circle_y = circle
 
         for rect in rectangles:
-            rect_x, rect_y, rect_xw, rect_yh = rect
+            rect_x, rect_y, rect_xw, rect_yh, _ = rect
 
             # Calculate the center point of the rectangle
             rect_center_x = (rect_x + rect_xw) / 2
@@ -138,22 +138,23 @@ class SynthController:
 
         return False
         
-    def assign_gesture(self, obj, synth_id):
-        # accounts for taps
-        if self.check_intersection((obj["pos_x"], obj["pos_y"]), self.one_loc):
-            if self.tap_timer-time.time()>0.3:
-                if synth_id in self.one_depths:
-                    self.one_depths[synth_id].append(obj["avg_depth"])
-                else:
-                    self.one_depths[synth_id] = deque(maxlen=16)
-                    self.one_depths[synth_id].append(obj["avg_depth"])
-                self.tap_timer = time.time()
-        else:
+    def assign_depth(self, obj, synth_id):
+        # accounts for depths
+        if self.check_intersection((obj["pos_x"], obj["pos_y"]), self.two_loc):
+            if synth_id in self.two_depths:
+                for loc in self.two_loc:
+                    self.two_depths[synth_id].append(loc[4])
+            else:
+                self.two_depths[synth_id] = deque(maxlen=16)
+                for loc in self.two_loc:
+                    self.two_depths[synth_id].append(loc[4])
+        elif self.check_intersection((obj["pos_x"], obj["pos_y"]), self.one_loc) or time.time()-self.tap_timer >5:
+            # remove envelope if the taps have taken long
             try:
-                self.one_depths[synth_id].clear()
+                self.two_depths[synth_id].clear()
             except:
                 pass
-
+            self.tap_timer = time.time()
 
                     
     
@@ -168,20 +169,21 @@ class SynthController:
             if (obj["obj"] == "sign"):
                 if obj["action"] == "Two":
                     self.prev_closed = False
-                    self.two_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"]))
+                    depth = (obj["depth"] - 10)/10 
+                    self.two_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"], depth))
                 elif obj["action"] == "One":
                     self.prev_closed = False
-                    self.one_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"]))
+                    self.one_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"],obj["depth"]))
                 elif obj["action"] == "Open":
                     self.prev_closed = False
-                    self.open_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"]))
+                    self.open_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"],obj["depth"]))
                 elif obj["action"] == "Close" and time.time()-self.time_passed>0.5:
                     self.time_passed = time.time()
                     if self.prev_closed == False:
                         self.closed = not self.closed
                         self.effect_on = self.closed
                         self.prev_closed = True
-                    self.close_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"]))
+                    self.close_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"],obj["depth"]))
             elif (obj["obj"] == "gesture"):
                 if obj["action"] == "Anticlockwise":
                     self.reverse = True
@@ -204,9 +206,9 @@ class SynthController:
                     if self.effect_on:
                         self.apply_effect(obj, synth_id)
                     else:
-                        self.assign_gesture(obj, synth_id)
+                        self.assign_depth(obj, synth_id)
                     try:
-                        self.synths[synth_id].play_osc(self.one_depths[synth_id])
+                        self.synths[synth_id].play_osc(dq = self.two_depths[synth_id])
                     except:
                         self.synths[synth_id].play_osc()
                 else:

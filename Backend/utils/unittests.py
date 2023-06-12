@@ -14,6 +14,101 @@ from gesturecalcs import *
 
 cov = coverage.Coverage()
 cov.start()
+
+################################################################
+################### DEPTH CAMERA TESTS #########################
+################################################################
+
+class ObjectTrackingTests(unittest.TestCase):
+    def test_find_closest_pairs(self):
+        existing_contours = [(1, [1, 2]), (2, [3, 4]), (3, [5, 6])]
+        coords2 = [[0, 1], [2, 3], [4, 5], [6, 7]]
+
+        pairs, unmatched_existing, unmatched_new = find_closest_pairs(existing_contours, coords2)
+
+        # Assert the expected pairs
+        expected_pairs = [(1, 0), (2, 1), (3, 2)]
+        self.assertEqual(set(pairs), set(expected_pairs))
+
+        # Assert the expected unmatched existing contours, as it is too far
+        expected_unmatched_existing = [0]
+        self.assertEqual(set(unmatched_existing), set(expected_unmatched_existing))
+
+        # Assert the expected unmatched new contours, as it did not exist previously
+        expected_unmatched_new = [3]
+        self.assertEqual(set(unmatched_new), set(expected_unmatched_new))
+
+    def test_process_matched_pairs(self):
+        pairs = [(1, 0), ]
+        centres = [(10, 20), (30, 40)]
+        pts = [{'id': 1, 'pts': deque([(5, 10), (10, 15)])}]
+        maskDataRGB = np.zeros((800, 640, 3), dtype=np.uint8)  # Create a blank imagee
+        objectDetails = []
+
+        # Call the function
+        objectDetails_result = process_matched_pairs(pairs, centres, pts, maskDataRGB, objectDetails)
+        # Assert the updated objectDetails
+        expected_objectDetails = [
+            {'id': '1', 'obj': 'circle1', 'action': 'move', 'pos_x': 10, 'pos_y': 20},
+        ]
+        self.assertEqual(objectDetails_result, expected_objectDetails)
+
+        # Assert the updated pts list
+        expected_pts = [{'id': 1, 'pts': deque([(10, 20), (5, 10), (10, 15)])}]
+        self.assertEqual(pts, expected_pts)
+
+
+################################################################
+################ GESTURE CALCULATION TESTS #####################
+################################################################
+class GestureCalcsTests(unittest.TestCase):
+    def test_check_overlap(self):
+        rect1 = (0, 0, 10, 10)
+        rect2 = (5, 5, 10, 10)
+        self.assertTrue(check_overlap(rect1, rect2))
+
+        rect3 = (0, 0, 5, 5)
+        rect4 = (10, 10, 5, 5)
+        self.assertFalse(check_overlap(rect3, rect4))
+
+    def test_calc_bounding_rect(self):
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # Create a mock landmarks object
+        mock_landmarks = MagicMock()
+        mock_landmarks.landmark = [
+            MagicMock(x=0.1, y=0.2),
+            MagicMock(x=0.3, y=0.4),
+            MagicMock(x=0.5, y=0.6)
+        ]
+        rect = calc_bounding_rect(image, mock_landmarks)
+        self.assertEqual(rect, [10, 20, 51, 61])
+
+    def test_calc_landmark_list(self):
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # Create a mock landmarks object
+        mock_landmarks = MagicMock()
+        mock_landmarks.landmark = [
+            MagicMock(x=0.1, y=0.2),
+            MagicMock(x=0.3, y=0.4),
+            MagicMock(x=0.5, y=0.6)
+        ]
+        landmark_list = calc_landmark_list(image, mock_landmarks)
+        self.assertListEqual(landmark_list, [[10, 20], [30, 40], [50, 60]])
+
+    def test_pre_process_landmark(self):
+        landmark_list = [[10, 20], [30, 40], [50, 60]]
+        preprocessed = pre_process_landmark(landmark_list)
+        self.assertEqual(preprocessed, [0.0, 0.0, 0.5, 0.5, 1.0, 1.0])
+
+    def test_pre_process_point_history(self):
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+        point_history = [[10, 20], [30, 40], [50, 60]]
+        preprocessed = pre_process_point_history(image, point_history)
+        self.assertEqual(preprocessed, [0.0, 0.0, 0.2, 0.2, 0.4, 0.4])
+
+
 ################################################################
 ################### SYNTHESIZER TESTS ##########################
 ################################################################
@@ -213,98 +308,6 @@ cov.start()
 #         # Assert that the result is None
 #         self.assertIsNone(result)
 
-################################################################
-################### DEPTH CAMERA TESTS #########################
-################################################################
-
-class ObjectTrackingTests(unittest.TestCase):
-    def test_find_closest_pairs(self):
-        existing_contours = [(1, [1, 2]), (2, [3, 4]), (3, [5, 6])]
-        coords2 = [[0, 1], [2, 3], [4, 5], [6, 7]]
-
-        pairs, unmatched_existing, unmatched_new = find_closest_pairs(existing_contours, coords2)
-
-        # Assert the expected pairs
-        expected_pairs = [(1, 0), (2, 1), (3, 2)]
-        self.assertEqual(set(pairs), set(expected_pairs))
-
-        # Assert the expected unmatched existing contours, as it is too far
-        expected_unmatched_existing = [0]
-        self.assertEqual(set(unmatched_existing), set(expected_unmatched_existing))
-
-        # Assert the expected unmatched new contours, as it did not exist previously
-        expected_unmatched_new = [3]
-        self.assertEqual(set(unmatched_new), set(expected_unmatched_new))
-
-    def test_process_matched_pairs(self):
-        pairs = [(1, 0), ]
-        centres = [(10, 20), (30, 40)]
-        pts = [{'id': 1, 'pts': deque([(5, 10), (10, 15)])}]
-        maskDataRGB = np.zeros((800, 640, 3), dtype=np.uint8)  # Create a blank imagee
-        objectDetails = []
-
-        # Call the function
-        objectDetails_result = process_matched_pairs(pairs, centres, pts, maskDataRGB, objectDetails)
-        # Assert the updated objectDetails
-        expected_objectDetails = [
-            {'id': '1', 'obj': 'circle1', 'action': 'move', 'pos_x': 10, 'pos_y': 20},
-        ]
-        self.assertEqual(objectDetails_result, expected_objectDetails)
-
-        # Assert the updated pts list
-        expected_pts = [{'id': 1, 'pts': deque([(10, 20), (5, 10), (10, 15)])}]
-        self.assertEqual(pts, expected_pts)
-
-
-################################################################
-################ GESTURE CALCULATION TESTS #####################
-################################################################
-class GestureCalcsTests(unittest.TestCase):
-    def test_check_overlap(self):
-        rect1 = (0, 0, 10, 10)
-        rect2 = (5, 5, 10, 10)
-        self.assertTrue(check_overlap(rect1, rect2))
-
-        rect3 = (0, 0, 5, 5)
-        rect4 = (10, 10, 5, 5)
-        self.assertFalse(check_overlap(rect3, rect4))
-
-    def test_calc_bounding_rect(self):
-        image = np.zeros((100, 100, 3), dtype=np.uint8)
-
-        # Create a mock landmarks object
-        mock_landmarks = MagicMock()
-        mock_landmarks.landmark = [
-            MagicMock(x=0.1, y=0.2),
-            MagicMock(x=0.3, y=0.4),
-            MagicMock(x=0.5, y=0.6)
-        ]
-        rect = calc_bounding_rect(image, mock_landmarks)
-        self.assertEqual(rect, [10, 20, 51, 61])
-
-    def test_calc_landmark_list(self):
-        image = np.zeros((100, 100, 3), dtype=np.uint8)
-
-        # Create a mock landmarks object
-        mock_landmarks = MagicMock()
-        mock_landmarks.landmark = [
-            MagicMock(x=0.1, y=0.2),
-            MagicMock(x=0.3, y=0.4),
-            MagicMock(x=0.5, y=0.6)
-        ]
-        landmark_list = calc_landmark_list(image, mock_landmarks)
-        self.assertListEqual(landmark_list, [[10, 20], [30, 40], [50, 60]])
-
-    def test_pre_process_landmark(self):
-        landmark_list = [[10, 20], [30, 40], [50, 60]]
-        preprocessed = pre_process_landmark(landmark_list)
-        self.assertEqual(preprocessed, [0.0, 0.0, 0.5, 0.5, 1.0, 1.0])
-
-    def test_pre_process_point_history(self):
-        image = np.zeros((100, 100, 3), dtype=np.uint8)
-        point_history = [[10, 20], [30, 40], [50, 60]]
-        preprocessed = pre_process_point_history(image, point_history)
-        self.assertEqual(preprocessed, [0.0, 0.0, 0.2, 0.2, 0.4, 0.4])
 
 if __name__ == '__main__':
     unittest.main()

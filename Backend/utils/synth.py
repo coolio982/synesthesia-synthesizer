@@ -270,10 +270,13 @@ class SimpleWave():
     def apply_filters(self, osc, deque):
         output_osc = self.apply_tremolo(osc)
         output_osc = self.apply_echo(output_osc)
-        output_osc = self.envelope(output_osc, deque)
+        if len(deque)>0:
+            output_osc = self.envelope(output_osc, deque)
+        else:
+            pass
         return output_osc
 
-    def play_osc(self,deque=None, notes=None):
+    def play_osc(self,notes=None,dq=None):
         if self.currently_playing:
             return
         if not notes:
@@ -291,7 +294,7 @@ class SimpleWave():
                 self.echos_ending_time = 0
                 if len(notes) <= 1:
                     # you can't use filters and echo when using arpeggio for now
-                    mixed_osc = self.apply_filters(mixed_osc, deque)
+                    mixed_osc = self.apply_filters(mixed_osc, dq)
                     sample = self.generate_sample(mixed_osc, 1)
 
                     if self.synth and sample.samplewidth != self.synth.samplewidth:
@@ -326,16 +329,18 @@ class SimpleWave():
             return source
         attack = 0.1
         decay = 0.07
-        sustain = 0.0
-        sustain_level = 0.10
+        sustain = 1
+        sustain_level = 0.13
         release =1.14
         if len(deque) >= 4:
             deque_groups = list(self.grouper(deque, len(deque) // 4, fillvalue=None))
-            attack = max(deque_groups[0][0], 20)/10
-            decay =max(deque_groups[1][0], 20)/10
-            sustain = max(deque_groups[2][0], 20)/10
+            attack = deque_groups[0][0]
+            decay =deque_groups[1][0]
+            sustain = deque_groups[2][0]
             sustain_level = 0.10
-            release =max(deque_groups[3][0], 20)/10
+            release =deque_groups[3][0]
+        else:
+            pass
         return EnvelopeFilter(source, attack, decay, sustain, sustain_level, release, False)
 
     def increment_wave_ctr(self):

@@ -112,8 +112,8 @@ const SpawnSoundObject: React.FC<Props> = ({ parentRef, actx }) => {
                   (component) => component.props.spawnId === obj.id
                 );
     
-                const adjusted_x = obj.pos_x; /// + calculateDisplacement(obj.pos_x, 320 + disp_x, 10, a)
-                const adjusted_y = obj.pos_y; // +disp_y/2.5+ calculateDisplacement(obj.pos_y, disp_y, k, a)///-disp_y//+ calculateDisplacement(obj.pos_y, disp_y, k, a)
+                const adjusted_x = obj.pos_x-20; /// + calculateDisplacement(obj.pos_x, 320 + disp_x, 10, a)
+                const adjusted_y = obj.pos_y-20; // +disp_y/2.5+ calculateDisplacement(obj.pos_y, disp_y, k, a)///-disp_y//+ calculateDisplacement(obj.pos_y, disp_y, k, a)
                 if (index !== -1) {
                   updatedComponents[index] = React.cloneElement(
                     updatedComponents[index],

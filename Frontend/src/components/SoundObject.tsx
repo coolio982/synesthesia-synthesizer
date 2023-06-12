@@ -833,8 +833,8 @@ const SoundObject: React.FC<Props> = ({
           <rect
             x={0}
             y={0}
-            width={currSize.current * 2}
-            height={currSize.current * 2}
+            width={currSize.current}
+            height={currSize.current}
             fill={colourLight || '#ffff00'}
           />
         )}
