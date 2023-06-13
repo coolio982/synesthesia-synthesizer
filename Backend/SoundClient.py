@@ -11,6 +11,7 @@ import numpy as np
 class SynthController:
     def __init__(self):
         self.notes = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#', 'G#', 'D#', 'A#', 'F']
+        self.active = True
         # TBC
         self.areas_x = [0, 130, 500, 640]
         self.areas_y = [0, 130, 270, 400]
@@ -84,6 +85,8 @@ class SynthController:
                     self.synths[synth_id].alter_tremolo_numbers(2)
                 elif self.check_intersection((obj["pos_x"], obj["pos_y"]), self.one_loc):
                     self.synths[synth_id].alter_tremolo_numbers(1)
+                else:
+                    self.synths[synth_id].alter_tremolo_numbers()
             elif obj["pos_y"] > self.areas_y[2]:# and self.prev_actions[synth_id] != "touch": 
                 if self.check_intersection((obj["pos_x"], obj["pos_y"]), self.two_loc):
                     self.synths[synth_id].alter_octave(1)
@@ -101,6 +104,8 @@ class SynthController:
                     self.synths[synth_id].alter_echo_delay(1)
                 elif self.check_intersection((obj["pos_x"], obj["pos_y"]), self.one_loc):
                     self.synths[synth_id].alter_echo_delay(-1)
+                else:
+                     self.synths[synth_id].alter_echo_delay(2)
                     
             else: 
                 self.synths[synth_id].alter_chords()
@@ -241,11 +246,13 @@ class SynthController:
                     data = await ws.recv()
                     data = data.decode()
                     if "Hello" in data:
-                        continue 
-                    objects = ast.literal_eval(data)
-                    synthDetails = self.process_data(objects)
-                    if synthDetails != []:
-                        await ws.send(str(synthDetails).encode())
+                        self.active = True
+                        continue
+                    if self.active:
+                        objects = ast.literal_eval(data)
+                        synthDetails = self.process_data(objects)
+                        if synthDetails != []:
+                            await ws.send(str(synthDetails).encode())
             except KeyboardInterrupt:
                 pass
             except websockets.ConnectionClosedOK:

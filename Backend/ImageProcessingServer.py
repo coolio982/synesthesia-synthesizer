@@ -167,18 +167,19 @@ def get_args():
 
 def hands_to_object_details(brect, keypoint_classifier_labels, gesture, effect_on, hand_sign_id,avg_depth, objectDetails):
     transformed_brect = scale_translate((brect[0], brect[1]))
-    if (gesture == "Clockwise" and effect_on == False):
-        effect_on = True
-        objectDetails.append({"id": "h", "obj": "gesture",
-                                "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY), "depth": int(avg_depth)})
-    elif (gesture == "Anticlockwise" and effect_on == True):
-        effect_on = False
-        objectDetails.append({"id": "h", "obj": "gesture",
-                                "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY),"depth": int(avg_depth)})
+    if transformed_brect[0]>-50 and transformed_brect[0] <640 and transformed_brect[1]>-50 and transformed_brect[1]<480:
+        if (gesture == "Clockwise" and effect_on == False):
+            effect_on = True
+            objectDetails.append({"id": "h", "obj": "gesture",
+                                    "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY), "depth": int(avg_depth)})
+        elif (gesture == "Anticlockwise" and effect_on == True):
+            effect_on = False
+            objectDetails.append({"id": "h", "obj": "gesture",
+                                    "action": str(gesture), "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*int(SFX), "y_h":brect[3]*int(SFY),"depth": int(avg_depth)})
 
-    if hand_sign_id != None and abs((brect[2]-brect[0])*(brect[1]-brect[3]))<MAX_HAND_AREA: # send if the hand area is recognised and is small enough(on the plane)
-        objectDetails.append({"id": "h", "obj": "sign",
-                                "action": keypoint_classifier_labels[hand_sign_id], "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*4, "y_h":brect[3]*4,"depth": int(avg_depth)})
+        if hand_sign_id != None and abs((brect[2]-brect[0])*(brect[1]-brect[3]))<MAX_HAND_AREA: # send if the hand area is recognised and is small enough(on the plane)
+            objectDetails.append({"id": "h", "obj": "sign",
+                                    "action": keypoint_classifier_labels[hand_sign_id], "x": transformed_brect[0], "y": transformed_brect[1], "x_w":brect[2]*4, "y_h":brect[3]*4,"depth": int(avg_depth)})
     return objectDetails
 
 def obj_to_obj_details(pts_dict, id, centre, objectDetails):
@@ -323,8 +324,10 @@ def main():
         # quantify how long the script takes
         if EVALUATE:
             start_time = time.time()
+            fps = cvFpsCalc.get()
         objectDetails = []
-        fps = cvFpsCalc.get()
+    
+
 
         # Process Key (ESC: end) #################################################
         key = cv.waitKey(10)

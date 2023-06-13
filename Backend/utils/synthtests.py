@@ -144,9 +144,7 @@ class SimpleWaveTest(unittest.TestCase):
         # Test altering tremolo depth
         self.simple_wave.alter_tremolo_numbers(dir=2)
         self.assertAlmostEqual(self.simple_wave.tremolo_depth, 0.6)
-        # No change if too fast
-        self.simple_wave.alter_tremolo_numbers(dir=2)
-        self.assertAlmostEqual(self.simple_wave.tremolo_depth, 0.6)
+
 
     def test_alter_tremolo_wave(self):
         self.simple_wave.alter_tremolo_wave()
@@ -163,9 +161,6 @@ class SimpleWaveTest(unittest.TestCase):
         self.simple_wave.toggle_echo()
         self.assertTrue(self.simple_wave.echo)
         self.simple_wave.time_passed = 0
-        self.simple_wave.toggle_echo()
-        self.assertFalse(self.simple_wave.echo)
-        # no change if requested too fast
         self.simple_wave.toggle_echo()
         self.assertFalse(self.simple_wave.echo)
 

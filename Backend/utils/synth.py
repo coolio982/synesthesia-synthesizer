@@ -78,7 +78,7 @@ class SimpleWave():
         self.currently_playing={}
         self.sid = None
         self.synth = None
-        self.wait_time = 0.5
+        self.wait_time = 0.3
         self.time_passed = 1000
         self.output = Output(self.samplerate, self.samplewidth, 1, mixing="mix")
         self.metronome = False
@@ -168,7 +168,6 @@ class SimpleWave():
     def generate_sample(self, oscillator: Oscillator, duration: float, use_fade: bool = False) -> Optional[Sample]:
         scale = 2**(8*self.samplewidth-1)
         blocks = oscillator.blocks()
-        print(blocks, type(blocks))
         try:
             sample_blocks = list(next(blocks) for _ in range(int(self.samplerate*duration/params.norm_osc_blocksize)))
             float_frames = sum(sample_blocks, [])
@@ -295,7 +294,10 @@ class SimpleWave():
                 if len(notes) <= 1:
                     # you can't use filters and echo when using arpeggio for now
                     mixed_osc = self.apply_filters(mixed_osc, dq)
-                    sample = self.generate_sample(mixed_osc, 1)
+                    try:
+                        sample = self.generate_sample(mixed_osc, 1)
+                    except:
+                        print("Error: sample generation failed")
 
                     if self.synth and sample.samplewidth != self.synth.samplewidth:
                         print("16 bit overflow!") 
@@ -378,24 +380,26 @@ class SimpleWave():
     
     def alter_tremolo_numbers(self, dir = 1):
         curr = time.time()
+        print(self.tremolo_rate, self.tremolo_depth, dir)
         if curr - self.time_passed > self.wait_time:
+            print("modify")
             if dir == 1: # mvment 1
                 self.tremolo_rate = (self.tremolo_rate+1)%10
             elif dir == 2: #movment 2
                 self.tremolo_depth = (((self.tremolo_depth*10)+1)%10)/10
             self.time_passed = curr
+        else:
+            print("wehey", self.tremolo_rate, self.tremolo_depth)
 
     def alter_tremolo_wave(self):
         curr = time.time()
         if curr - self.time_passed > self.wait_time:
             self.tremolo_wave = (self.tremolo_wave+1)%5
-            self.time_passed = curr
 
     def toggle_echo(self):
         curr = time.time()
         if curr - self.time_passed > self.wait_time:
             self.echo = not self.echo
-            self.time_passed = curr
 
     def alter_echo_delay(self, dir = 1):
         curr = time.time()
