@@ -380,16 +380,14 @@ class SimpleWave():
     
     def alter_tremolo_numbers(self, dir = 1):
         curr = time.time()
-        print(self.tremolo_rate, self.tremolo_depth, dir)
         if curr - self.time_passed > self.wait_time:
-            print("modify")
             if dir == 1: # mvment 1
                 self.tremolo_rate = (self.tremolo_rate+1)%10
             elif dir == 2: #movment 2
                 self.tremolo_depth = (((self.tremolo_depth*10)+1)%10)/10
             self.time_passed = curr
         else:
-            print("wehey", self.tremolo_rate, self.tremolo_depth)
+            pass
 
     def alter_tremolo_wave(self):
         curr = time.time()
