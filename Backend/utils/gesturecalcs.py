@@ -157,14 +157,14 @@ def draw_landmarks(image, landmark_points):
                              13, 14, 15, 16, 17, 18, 19, 20]
 
         for connection in connections:
+            # cv.line(image, tuple(landmark_points[connection[0]]),
+            #         tuple(landmark_points[connection[1]]), (0, 0, 0), 3)
             cv.line(image, tuple(landmark_points[connection[0]]),
-                    tuple(landmark_points[connection[1]]), (0, 0, 0), 6)
-            cv.line(image, tuple(landmark_points[connection[0]]),
-                    tuple(landmark_points[connection[1]]), (255, 255, 255), 2)
+                    tuple(landmark_points[connection[1]]), (255, 255, 255), 3)
 
         for index in key_point_indices:
             cv.circle(image, tuple(landmark_points[index]), 5, (255, 255, 255), -1)
-            cv.circle(image, tuple(landmark_points[index]), 5, (0, 0, 0), 1)
+            # cv.circle(image, tuple(landmark_points[index]), 5, (0, 0, 0), 1)
 
     return image
 

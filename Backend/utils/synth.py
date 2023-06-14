@@ -269,10 +269,11 @@ class SimpleWave():
     def apply_filters(self, osc, deque):
         output_osc = self.apply_tremolo(osc)
         output_osc = self.apply_echo(output_osc)
-        if len(deque)>0:
-            output_osc = self.envelope(output_osc, deque)
-        else:
-            pass
+        if deque and  len(deque)>0:
+            try:
+                output_osc = self.envelope(output_osc, deque)
+            except:
+                print("Error: Failed to create envelope")
         return output_osc
 
     def play_osc(self,notes=None,dq=None):
@@ -304,6 +305,8 @@ class SimpleWave():
                     current_echos_duration = getattr(mixed_osc, "echo_duration", 0)
                     if current_echos_duration > 0:
                         self.echos_ending_time = time.time() + current_echos_duration
+                else:
+                    print("Error: No notes to render")
             except:
                 print("Error: Sample mixing failed")
         try:
@@ -478,7 +481,7 @@ class SimpleWave():
 ###### MANUAL TESTING SCRIPT ######
 def on_keydown(event, w):
     if (event.name =='a'):
-        w.play_osc(['A'])
+        w.play_osc(['C'])
     if (event.name =='f'):
         print("play synth")
         w.play_osc(['F'])

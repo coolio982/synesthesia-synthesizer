@@ -7,6 +7,8 @@ from utils import synth
 import time
 import cv2 as cv
 import numpy as np
+import sounddevice as sd
+import scipy.io.wavfile as wav
 
 class SynthController:
     def __init__(self):
@@ -29,6 +31,8 @@ class SynthController:
         self.prev_reverse = False
         self.reverse = False
         self.should_terminate = False
+        self.recording_duration = 5  
+        self.sampling_rate = 44100 
         self.tap_timer = time.time()
         self.two_depths = {}
         
@@ -189,11 +193,20 @@ class SynthController:
                         self.effect_on = self.closed
                         self.prev_closed = True
                     self.close_loc.append((obj["x"], obj["y"], obj["x_w"], obj["y_h"],obj["depth"]))
-            elif (obj["obj"] == "gesture"):
+            elif (obj["obj"] == "gesture" and time.time()-self.time_passed>0.5):
+                self.time_passed = time.time()
                 if obj["action"] == "Anticlockwise":
                     self.reverse = True
                 elif obj["action"] == "Clockwise":
                     self.reverse = False
+                # elif obj["action"] == "Stop" and self.effect_on == False:
+                #     self.effect_on = True
+                #     print("STOP")
+                #     recording = sd.rec(int(self.recording_duration * self.sampling_rate), samplerate=self.sampling_rate, channels=1)
+                #     # Wait for the recording to complete
+                #     sd.wait()
+                #     # Save the recorded audio to a WAV file
+                #     wav.write("recording.wav", self.sampling_rate, recording)
         for obj in objectDetails:  
             if (obj["obj"] == "circle") and (obj["pos_x"] > self.areas_x[0]) and  (obj["pos_x"] < self.areas_x[3]) and (obj["pos_y"] > self.areas_y[0]) and  (obj["pos_y"] < self.areas_y[3]) :
                 synth_id = obj["id"]
