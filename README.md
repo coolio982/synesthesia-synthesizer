@@ -4,6 +4,8 @@ Final year MEng Electronic and Information (EIE) project. This project implement
 
 ![Synth in action](interaction.jpg "Synesthesia Synthesizer In Action")
 
+[Set up video](https://youtu.be/gz2XlZbp-D4)
+
 ## File Directory
 
 - **Backend**: Image and audio processing scripts, created using python.
