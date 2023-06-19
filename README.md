@@ -4,7 +4,7 @@ Final year MEng Electronic and Information (EIE) project. This project implement
 
 ![Synth in action](interaction.jpg "Synesthesia Synthesizer In Action")
 
-[Set up video](https://youtu.be/gz2XlZbp-D4)
+For a calibration example and to see it in action, please watch [Set up video](https://youtu.be/gz2XlZbp-D4)
 
 ## File Directory
 
