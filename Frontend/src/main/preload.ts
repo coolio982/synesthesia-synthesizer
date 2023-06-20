@@ -5,6 +5,7 @@ export type Channels =
   | 'calibrate'
   | 'get-loc'
   | 'use-loc'
+  | 'use-gest'
   | 'use-wav'
   | 'effects-toggle'
   | 'read-ini-file'

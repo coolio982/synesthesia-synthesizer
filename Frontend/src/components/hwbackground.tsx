@@ -73,7 +73,10 @@ function isPointInsideRectangle(
 const BackgroundHw = () => {
   const [showText, setShowText] = useState('');
   const [effectsToggle, setEffectsToggle] = useState(false);
-
+  const[anticlockwise, setAnticlockwise]= useState<[number, number][]>([]);
+  const[clockwise, setClockwise]= useState<[number, number][]>([]);
+  const [rotationAngle, setRotationAngle] = useState(0); 
+  
   useEffect(() => {
     // Listen for the 'effects toggle' event from the main process
     const listener = window.electron.ipcRenderer.on(
@@ -88,11 +91,48 @@ const BackgroundHw = () => {
         }
       }
     );
+    const gestListener = window.electron.ipcRenderer.on('use-gest', (event, receivedMessage) => {
+      // @ts-ignore
+      const jsonList = parseStringToJsonList(event);
+      // @ts-ignore
+      const filteredList = jsonList.filter(obj => obj["obj"] === "gesture");
+      console.log(filteredList)
+      const coordinates = filteredList.map((obj: { action: any, x: any; y: any ,x_w: any, x_h:any}) => {
+        return {
+          action: obj.action,
+          x: obj.x * 2 + obj.x_w,
+          y: obj.y * 2+ obj.x_h,
+        };
+      });
+      if (filteredList.length === 0 || coordinates.length === 0){
+        setClockwise([]);
+        setAnticlockwise([]);
+      }else{
+      for (let i = 0; i < coordinates.length; i++) {
+        if (coordinates[i].action === "Anticlockwise"){
+          setAnticlockwise([coordinates[i].x, coordinates[i].y]);
+          setClockwise([]);
+          break;
+        }else if (coordinates[i].action === "Clockwise"){
+          setClockwise([coordinates[i].x, coordinates[i].y]);
+          setAnticlockwise([]);
+          break;
+        }else{
+          setClockwise([]);
+          setAnticlockwise([]);
+        }
+      }
+    }
+    })
+    
     // Clean up the event listener when the component unmounts
     return () => {
       window.electron.ipcRenderer.removeListener('effects-toggle', listener);
+      window.electron.ipcRenderer.removeListener('use-gest', gestListener);
     };
   }, []);
+
+  
 
   useEffect(() => {
     // Listen for the 'use-loc' event from the main process
@@ -126,6 +166,25 @@ const BackgroundHw = () => {
       window.electron.ipcRenderer.removeListener('use-loc', listener);
     };
   }, [effectsToggle]);
+
+
+  useEffect(() => {
+    const animateRotation = () => {
+      const rotationSpeed = 1; 
+
+      setRotationAngle(prevAngle => prevAngle - rotationSpeed);
+
+      requestAnimationFrame(animateRotation);
+    };
+
+    if (anticlockwise.length > 0) {
+      animateRotation(); // Start the rotation animation
+    } else {
+      setRotationAngle(0); // Stop the rotation animation
+    }
+
+    // Rest of the code...
+  }, [anticlockwise]);
 
   return (
     <>
@@ -161,6 +220,60 @@ const BackgroundHw = () => {
             </div>
           )
       )}
+      {anticlockwise.length > 0 && (
+        <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 9999,
+          textAlign: 'center',
+        }}
+      >
+        <svg
+          width="100"
+          height="100"
+          viewBox="0 0 24 24"
+          style={{
+            animation: 'pulseRotateACW 2s linear infinite,  pulseFill 4s linear infinite',
+            transformOrigin: 'center',
+            opacity: 0.8,
+          }}
+        >
+          <path
+            d="M18.885 3.515c-4.617-4.618-12.056-4.676-16.756-.195l-2.129-2.258v7.938h7.484l-2.066-2.191c2.82-2.706 7.297-2.676 10.073.1 4.341 4.341 1.737 12.291-5.491 12.291v4.8c3.708 0 6.614-1.244 8.885-3.515 4.686-4.686 4.686-12.284 0-16.97z"
+          />
+        </svg>
+      </div>
+      )} 
+            {clockwise.length > 0 && (
+        <div
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 9999,
+          textAlign: 'center',
+        }}
+      >
+        <svg
+          width="100"
+          height="100"
+          viewBox="0 0 24 24"
+          style={{
+            animation: 'pulseRotateCW 2s linear infinite,  pulseFill 4s linear infinite',
+            transformOrigin: 'center',
+            opacity: 0.8,
+          }}
+        >
+          <path
+            d="M4.115 5.515c4.617-4.618 12.056-4.676 16.756-.195l2.129-2.258v7.938h-7.484l2.066-2.191c-2.819-2.706-7.297-2.676-10.074.1-2.992 2.993-2.664 7.684.188 10.319l-3.314 3.5c-4.716-4.226-5.257-12.223-.267-17.213z"
+          />
+        </svg>
+      </div>
+      )} 
     </>
   );
 };

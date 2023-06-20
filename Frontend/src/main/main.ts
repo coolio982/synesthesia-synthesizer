@@ -155,7 +155,9 @@ const createWindow = async () => {
       const data = event.data.toString();
       if (data.includes('wave')) {
         mainWindow.webContents.send('use-wav', data);
-      } else {
+      }  else if(data.includes('gesture') || data.includes('x_w') )  {
+        mainWindow.webContents.send('use-gest', data);
+      }else {
         mainWindow.webContents.send('use-loc', data);
       }
       if (data.includes('effects-toggle')) {

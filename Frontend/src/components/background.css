@@ -397,6 +397,46 @@
   width: 100px;
 }
 
+/* SVG Background styling */
+@keyframes pulseRotateACW {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes pulseRotateCW {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseFill {
+  0% {
+    fill: red;
+  }
+  20% {
+    fill: orange;
+  }
+  40% {
+    fill: yellow;
+  }
+  60% {
+    fill: green;
+  }
+  80% {
+    fill: blue;
+  }
+  100% {
+    fill: purple;
+  }
+}
+
 
 /* Having a slightly responsive display */
 /* @media (min-width: 1280px) { 
