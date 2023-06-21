@@ -10,4 +10,4 @@ For a calibration example and to see it in action, please watch the [introductor
 
 - **Backend**: Image and audio processing scripts, created using python.
 - **Frontend**: User-facing application using electron-react-typescript framework.
-- **Objects**: .stl files used to hold up a projector.
+- **Objects**: .stl files used as part of the frame.
